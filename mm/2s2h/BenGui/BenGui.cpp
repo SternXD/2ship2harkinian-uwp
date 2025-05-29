@@ -33,6 +33,10 @@
 #include "DeveloperTools/CollisionViewer.h"
 #include "DeveloperTools/EventLog.h"
 
+#ifdef _UWP
+extern "C" __declspec(dllimport) void uwp_GetScreenSize(int* x, int* y);
+#endif
+
 namespace BenGui {
 // MARK: - Delegates
 
@@ -66,6 +70,14 @@ UIWidgets::Colors GetMenuThemeColor() {
 }
 
 void SetupGuiElements() {
+#ifdef _UWP
+    // Apply scaling for > 1080
+    int width, height;
+    uwp_GetScreenSize(&width, &height);
+    ImGuiIO& io = ImGui::GetIO();
+    io.FontGlobalScale = height / 1080.0f;
+#endif
+
     auto gui = Ship::Context::GetInstance()->GetWindow()->GetGui();
 
     auto& style = ImGui::GetStyle();
@@ -79,6 +91,8 @@ void SetupGuiElements() {
     if (!gui->GetMenuBar() && !CVarGetInteger("gSettings.DisableMenuShortcutNotify", 0)) {
 #if defined(__SWITCH__) || defined(__WIIU__)
         gui->GetGameOverlay()->TextDrawNotification(30.0f, true, "Press - to access enhancements menu");
+#elif defined(_UWP)
+        gui->GetGameOverlay()->TextDrawNotification(30.0f, true, "Press Select to access enhancements menu");
 #else
         gui->GetGameOverlay()->TextDrawNotification(30.0f, true, "Press F1 to access enhancements menu");
 #endif

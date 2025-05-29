@@ -742,6 +742,11 @@ extern "C" void InitOTR() {
     }
 #endif
 
+#ifdef _UWP
+    CVarRegisterInteger(CVAR_IMGUI_CONTROLLER_NAV, 1); // always enable controller nav on switch/wii u
+#endif
+
+
     std::shared_ptr<Ship::Config> conf = OTRGlobals::Instance->context->GetConfig();
     Ship::Context::GetInstance()->GetFileDropMgr()->RegisterDropHandler(BinarySaveConverter_HandleFileDropped);
     Ship::Context::GetInstance()->GetFileDropMgr()->RegisterDropHandler(SaveManager_HandleFileDropped);

@@ -14,6 +14,10 @@ extern "C" {
 #include "z64.h"
 #include "functions.h"
 extern PlayState* gPlayState;
+
+#ifdef _UWP
+__declspec(dllimport) void uwp_GetScreenSize(int* x, int* y);
+#endif;
 }
 std::vector<ImVec2> windowTypeSizes = { {} };
 
@@ -578,6 +582,7 @@ void Menu::DrawElement() {
             headerWidth += style.ItemSpacing.x;
         }
     }
+#ifndef _UWP
     // Full screen menu with widths below 1280, heights below 800.
     // 5% of screen width/height padding on both sides above those resolutions.
     // Menu width will never exceed a 16:9 aspect ratio.
@@ -588,6 +593,13 @@ void Menu::DrawElement() {
     if (windowHeight > 800) {
         menuSize.y = windowHeight * 0.9f;
     }
+#else
+    #define MENU_PADDING 25
+    int x, y;
+    uwp_GetScreenSize(&x, &y);
+    ImVec2 menuSize = { std::fminf(x - MENU_PADDING, windowWidth),
+        std::fminf(y - MENU_PADDING, windowHeight) };
+#endif
     pos += window->WorkRect.GetSize() / 2 - menuSize / 2;
     ImGui::SetNextWindowPos(pos);
     ImGui::BeginChild("Menu Block", menuSize,
@@ -610,7 +622,7 @@ void Menu::DrawElement() {
 
         // Update gamepad navigation after close based on if other menus are still visible
         auto mImGuiIo = &ImGui::GetIO();
-        if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) &&
+        if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 1) &&
             Ship::Context::GetInstance()->GetWindow()->GetGui()->GetMenuOrMenubarVisible()) {
             mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
         } else {
@@ -686,7 +698,7 @@ void Menu::DrawElement() {
     options2.tooltip = "Reset"
 #ifdef __APPLE__
                        " (Command-R)"
-#elif !defined(__SWITCH__) && !defined(__WIIU__)
+#elif !defined(__SWITCH__) && !defined(__WIIU__) && !defined(_UWP)
                        " (Ctrl+R)"
 #else
                        ""
@@ -718,7 +730,11 @@ void Menu::DrawElement() {
     float sectionHeight = menuSize.y - headerHeight - 4 - style.ItemSpacing.y * 2;
     float columnHeight = sectionHeight - style.ItemSpacing.y * 4;
     ImGui::SetNextWindowPos(pos + style.ItemSpacing * 2);
+#ifndef _UWP
     float sidebarWidth = 200 - style.ItemSpacing.x;
+#else
+    float sidebarWidth = 400 - style.ItemSpacing.x;
+#endif
 
     const char* sidebarCvar = menuEntries.at(headerIndex).sidebarCvar;
 

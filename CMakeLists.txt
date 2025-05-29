@@ -9,7 +9,8 @@ project(2s2h VERSION 3.0.1 LANGUAGES C CXX)
 include(CMake/2ship-cvars.cmake)
 include(CMake/lus-cvars.cmake)
 include(CMake/logging.cmake)
-set(PROJECT_BUILD_NAME "Mion Bravo" CACHE STRING "" FORCE)
+include(FetchContent)
+set(PROJECT_BUILD_NAME "Satoko Charlie" CACHE STRING "" FORCE)
 set(PROJECT_TEAM "github.com/harbourmasters" CACHE STRING "" FORCE)
 
 execute_process(
@@ -93,6 +94,15 @@ endif()
 # VCPKG dependencies for Windows
 ################################################################################
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+# Fetch shared UWP deps
+add_compile_definitions(_UWP=1)
+FetchContent_Declare(UwpLibs
+    GIT_REPOSITORY https://github.com/worleydl/uwp-dep.git
+    GIT_TAG 6bacc41c906298d8e667fdc20590fa70b1d92ffa
+)
+FetchContent_MakeAvailable(UwpLibs)
+
+# Use vcpkg for everything else
 include(CMake/automate-vcpkg.cmake)
 
 if ("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "Win32")
@@ -104,7 +114,7 @@ elseif ("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
 endif()
 
 vcpkg_bootstrap()
-vcpkg_install_packages(zlib bzip2 libzip libpng sdl2 sdl2-net glew glfw3 nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile)
+vcpkg_install_packages(zlib bzip2 libzip libpng sdl2-net glew nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile)
 endif()
 
 ################################################################################

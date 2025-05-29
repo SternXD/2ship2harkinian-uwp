@@ -931,6 +931,7 @@ Acmd* AudioSynth_ProcessSample(s32 noteIndex, NoteSampleState* sampleState, Note
     u16 combFilterGain;
     s16* filter;
     s32 bookOffset = sampleState->bitField1.bookOffset;
+    s32 ramAlign;
     s32 finished = sampleState->bitField0.finished;
     s32 sampleDataChunkSize;
     s16 sampleDataDmemAddr;
@@ -1224,8 +1225,21 @@ Acmd* AudioSynth_ProcessSample(s32 noteIndex, NoteSampleState* sampleState, Note
                     //    sampleDataDmemAddr = DMEM_COMPRESSED_ADPCM_DATA - sampleDataChunkSize;
                     //}
 
-                    aLoadBuffer(cmd++, samplesToLoadAddr - sampleDataChunkAlignPad, sampleDataDmemAddr,
+
+		    // [UWP] Reapplying audio fixes that were needed for soh
+                    // See: https://github.com/worleydl/shipdev/blob/64a5c0f674b8e372a2793bdbf7cfdc06b0070f3c/soh/src/code/audio_synthesis.c#L898
+                    if (sample->medium != MEDIUM_RAM) {
+			aLoadBuffer(cmd++, samplesToLoadAddr - sampleDataChunkAlignPad, sampleDataDmemAddr,
                                 sampleDataChunkSize);
+                    } else {
+                        ramAlign =
+                            MIN((numFramesToDecode * frameSize) + 16,
+                                (sample->size) - (sampleAddrOffset - sampleDataChunkAlignPad + zeroOffset));
+
+                        aLoadBufferNoRound(aList++, samplesToLoadAddr - sampleDataChunkAlignPad, sampleDataDmemAddr, ramAlign);
+                        aBackfillBuffer(sampleDataDmemAddr + ramAlign,
+                                        sampleDataChunkSize - ramAlign); // Dunno if needed but I make believe this prevents artifacts
+                    }
                 } else {
                     numSamplesToDecode = 0;
                     sampleDataChunkAlignPad = 0;

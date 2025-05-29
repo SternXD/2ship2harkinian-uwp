@@ -28,7 +28,11 @@ extern FileSelectState* gFileSelectState;
     ((GET_NEWF(save, 0) == 'Z') && (GET_NEWF(save, 1) == 'E') && (GET_NEWF(save, 2) == 'L') && \
      (GET_NEWF(save, 3) == 'D') && (GET_NEWF(save, 4) == 'A') && (GET_NEWF(save, 5) == '3'))
 
+#ifndef _UWP
 const std::filesystem::path savesFolderPath(Ship::Context::GetPathRelativeToAppDirectory("saves", appShortName));
+#else
+const std::filesystem::path savesFolderPath(Ship::Context::GetPathRelativeToAuxiliary("saves"));
+#endif
 
 // Migrations
 // The idea here is that we can read in any version of the save as generic JSON, then apply migrations

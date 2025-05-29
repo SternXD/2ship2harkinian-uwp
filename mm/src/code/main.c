@@ -4,6 +4,11 @@
 #include <locale.h>
 #endif
 
+#ifdef _UWP
+#define SDLMAIN_DECLSPEC __declspec(dllexport)
+#include "SDL_main.h"
+#endif
+
 #include "audiomgr.h"
 #include "fault.h"
 #include "idle.h"
@@ -52,7 +57,7 @@ void Heaps_Free(void);
 #define SDL_main main
 #endif
 
-void SDL_main(int argc, char** argv /* void* arg*/) {
+int SDL_main(int argc, char** argv /* void* arg*/) {
     intptr_t fb;
     intptr_t sysHeap;
     s32 exit;
@@ -149,4 +154,5 @@ void SDL_main(int argc, char** argv /* void* arg*/) {
     FreeConsole();
 #endif
     Heaps_Free();
+    return 0;
 }

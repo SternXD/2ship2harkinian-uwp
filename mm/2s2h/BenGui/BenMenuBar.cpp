@@ -36,6 +36,8 @@ void DrawBenMenu() {
         if (UIWidgets::MenuItem("Hide Menu Bar",
 #if !defined(__SWITCH__) && !defined(__WIIU__)
                                 "F1"
+#elif defined(_UWP)
+				"Select"
 #else
                                 "[-]"
 #endif
@@ -60,7 +62,7 @@ void DrawBenMenu() {
                 Ship::Context::GetInstance()->GetWindow()->GetGui()->GetGuiWindow("Console"))
                 ->Dispatch("reset");
         }
-#if !defined(__SWITCH__) && !defined(__WIIU__)
+#if !defined(__SWITCH__) && !defined(__WIIU__) && !defined(_UWP)
         if (UIWidgets::MenuItem("Open App Files Folder")) {
             std::string filesPath = Ship::Context::GetInstance()->GetAppDirectoryPath();
             SDL_OpenURL(std::string("file:///" + std::filesystem::absolute(filesPath).string()).c_str());
