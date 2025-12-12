@@ -72,7 +72,7 @@ enum class ButtonId : int {
 };
 
 void Extractor::ShowErrorBox(const char* title, const char* text) {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_UWP)
     MessageBoxA(nullptr, text, title, MB_OK | MB_ICONERROR);
 #else
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, text, nullptr);
@@ -128,7 +128,7 @@ int Extractor::ShowRomPickBox(uint32_t verCrc) const {
 
 int Extractor::ShowYesNoBox(const char* title, const char* box) {
     int ret;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_UWP)
     ret = MessageBoxA(nullptr, box, title, MB_YESNO | MB_ICONQUESTION);
 #else
     SDL_MessageBoxData boxData = { 0 };
@@ -502,6 +502,16 @@ bool Extractor::IsMasterQuest() const {
     return false;
 }
 
+void Extractor::LoadRomData() {
+    if (mCurrentRomPath.empty()) return;
+    std::ifstream inFile(mCurrentRomPath, std::ios::binary);
+    if (!inFile.is_open()) return;
+    mCurRomSize = GetCurRomSize();
+    inFile.read((char*)mRomData.get(), mCurRomSize);
+    inFile.close();
+    BitConverter::RomToBigEndian(mRomData.get(), mCurRomSize);
+}
+
 const char* Extractor::GetZapdVerStr() const {
     switch (GetRomVerCrc()) {
         case MM_US_10:
@@ -624,3 +634,15 @@ static void MessageboxWorker() {
                              "finish. Do not close the main program.",
                              nullptr);
 }
+
+#ifdef _UWP
+// this is the function that will be called by the UWP app
+extern "C" __declspec(dllexport) bool Extractor_CallZapd(const char* installPath, const char* exportdir, const char* romPath) {
+    Extractor extract;
+    if (romPath && strlen(romPath) > 0) {
+        extract.SetRomInfo(romPath);
+        extract.LoadRomData();
+    }
+    return extract.CallZapd(installPath ? installPath : "", exportdir ? exportdir : "") == 0;
+}
+#endif

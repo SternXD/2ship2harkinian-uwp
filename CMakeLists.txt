@@ -97,8 +97,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 # Fetch shared UWP deps
 add_compile_definitions(_UWP=1)
 FetchContent_Declare(UwpLibs
-    GIT_REPOSITORY https://github.com/worleydl/uwp-dep.git
-    GIT_TAG 6bacc41c906298d8e667fdc20590fa70b1d92ffa
+    GIT_REPOSITORY https://github.com/SternXD/uwp-dep.git
+    GIT_TAG 268c324b73437be3f1f5ac13b0aa5c9e571a5d9b
 )
 FetchContent_MakeAvailable(UwpLibs)
 
@@ -162,6 +162,34 @@ include(CMake/GlobalSettingsInclude.cmake OPTIONAL)
 # Use solution folders feature
 ################################################################################
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+################################################################################
+# UWP ZAPD patch
+################################################################################
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set(ZAPD_MAIN_CPP "${CMAKE_SOURCE_DIR}/ZAPDTR/ZAPD/Main.cpp")
+    set(ZAPD_PATCH_FILE "${CMAKE_SOURCE_DIR}/vs2022-uwp/uwp/patches/ZAPD-UWP.patch")
+    
+    find_program(GIT_EXECUTABLE git)
+    
+    # Create a custom target that applies UWP ZAPD patch at build time
+    add_custom_target(ApplyUwpPatches ALL
+        COMMENT "Applying UWP ZAPD patch..."
+    )
+    
+    # Apply UWP ZAPD patch if needed
+    if(EXISTS "${ZAPD_MAIN_CPP}" AND EXISTS "${ZAPD_PATCH_FILE}" AND GIT_EXECUTABLE)
+        add_custom_command(
+            TARGET ApplyUwpPatches PRE_BUILD
+            COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/ApplyPatch.cmake"
+                "${ZAPD_MAIN_CPP}"
+                "${ZAPD_PATCH_FILE}"
+                "#ifdef _UWP"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Applying UWP ZAPD patch..."
+        )
+    endif()
+endif()
 
 ################################################################################
 # Sub-projects

@@ -1,17 +1,17 @@
-From c3acd441deac14c9dcd8ac6e702aa07b75c6a231 Mon Sep 17 00:00:00 2001
+From 6ffd8a5b912ca5a713182d8341d85887ea531cf8 Mon Sep 17 00:00:00 2001
 From: SternXD <stern@sidestore.io>
-Date: Fri, 12 Dec 2025 12:58:06 -0500
+Date: Fri, 12 Dec 2025 14:59:16 -0500
 Subject: [PATCH] UWP: Add UWP compatibility and progress reporting
 
 ---
- ZAPD/Main.cpp | 32 ++++++++++++++++++++++++++++++++
- 1 file changed, 32 insertions(+)
+ ZAPD/Main.cpp | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
 
-diff --git a/ZAPD/Main.cpp b/ZAPD/Main.cpp
-index 4598da9..180da3a 100644
---- a/ZAPD/Main.cpp
-+++ b/ZAPD/Main.cpp
-@@ -4,6 +4,38 @@
+diff --git a/ZAPDTR/ZAPD/Main.cpp b/ZAPD/Main.cpp
+index 4598da9..0f18098 100644
+--- a/ZAPDTR/ZAPD/Main.cpp
++++ b/ZAPDTR/ZAPD/Main.cpp
+@@ -4,6 +4,50 @@
  #include <Utils/Directory.h>
  #include "WarningHandler.h"
  
@@ -22,10 +22,22 @@ index 4598da9..180da3a 100644
 +
 +extern "C" {
 +    typedef void (*ZapdProgressCallback)(const char* message);
++    
++    static ZapdProgressCallback s_zapdProgressCallback = nullptr;
++    
++    #ifdef _UWP
++    __declspec(dllexport) void SetZapdProgressCallback(ZapdProgressCallback callback) {
++        s_zapdProgressCallback = callback;
++    }
++    #else
++    void SetZapdProgressCallback(ZapdProgressCallback callback) {
++        s_zapdProgressCallback = callback;
++    }
++    #endif
++    
 +    ZapdProgressCallback g_zapdProgressCallback = nullptr;
 +}
 +
-+// Wrap printf to capture output for UWP
 +int zapd_printf(const char* format, ...) {
 +    char buffer[4096];
 +    va_list args;
@@ -34,8 +46,8 @@ index 4598da9..180da3a 100644
 +    va_end(args);
 +
 +    // Call the callback if set
-+    if (g_zapdProgressCallback) {
-+        g_zapdProgressCallback(buffer);
++    if (s_zapdProgressCallback) {
++        s_zapdProgressCallback(buffer);
 +    }
 +
 +    // Also output to debug console

@@ -60,6 +60,9 @@ CrowdControl* CrowdControl::Instance;
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/CustomItem/CustomItem.h"
 #include "2s2h/BenGui/Notification.h"
+#ifdef _UWP
+#include "UwpBootstrap.h"
+#endif
 #include "2s2h/ShipUtils.h"
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/PresetManager/PresetManager.h"
@@ -665,6 +668,17 @@ extern "C" void InitOTR() {
     std::string mmPathO2R = Ship::Context::LocateFileAcrossAppDirs("mm.o2r", appShortName);
     std::string mmPathZIP = Ship::Context::LocateFileAcrossAppDirs("mm.zip", appShortName);
     std::string mmPathOtr = Ship::Context::LocateFileAcrossAppDirs("mm.otr", appShortName);
+
+#ifdef _UWP
+    // On UWP, prompt the user to generate mm.o2r upfront using the bundled picker.
+    if (!std::filesystem::exists(mmPathO2R)) {
+        if (!EnsureO2rPresentUwp(appShortName)) {
+            Extractor::ShowErrorBox("No O2R File", "No O2R file found and generation was cancelled. Exiting...");
+            exit(1);
+        }
+        mmPathO2R = Ship::Context::LocateFileAcrossAppDirs("mm.o2r", appShortName);
+    }
+#endif
 
     // Check game archives in preferred order
     if (std::filesystem::exists(mmPathO2R)) {

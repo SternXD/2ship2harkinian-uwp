@@ -42,11 +42,10 @@
 
 extern "C" {
     typedef void (*ZapdProgressCallback)(const char* message);
-    // Gets defined in ZAPDTR/ZAPD/Main.cpp when UWP patch is applied
     #ifdef _MSC_VER
-    __declspec(selectany) ZapdProgressCallback g_zapdProgressCallback = nullptr;
+    __declspec(dllimport) void SetZapdProgressCallback(ZapdProgressCallback callback);
     #else
-    ZapdProgressCallback g_zapdProgressCallback __attribute__((weak)) = nullptr;
+    void SetZapdProgressCallback(ZapdProgressCallback callback);
     #endif
 }
 
@@ -92,7 +91,6 @@ namespace bootmenu
 
 	static ExtractionState g_extractionState;
 	
-	// Cache the storage location to avoid repeated ApplicationData access
 	static StorageLocation g_cachedStorageLocation = StorageLocation::DDrive;
 	static bool g_storageLocationCached = false;
 
@@ -121,7 +119,6 @@ namespace bootmenu
 				if (container) {
 					auto value = container.Values().TryLookup(L"StorageLocation");
 					if (value) {
-						// Use as() to get the int value
 						int location = value.as<int>();
 						g_cachedStorageLocation = static_cast<StorageLocation>(location);
 						g_storageLocationCached = true;
@@ -137,7 +134,6 @@ namespace bootmenu
 		}
 		
 		void SaveStorageLocation(StorageLocation location) {
-			// Update cache immediately
 			g_cachedStorageLocation = location;
 			g_storageLocationCached = true;
 			
@@ -159,7 +155,7 @@ namespace bootmenu
 				winrt::Windows::Foundation::Collections::IPropertySet values = container.Values();
 				values.Insert(L"StorageLocation", propertyValue);
 			} catch (...) {
-				// Failed to save settings - silently fail, but cache is still updated
+				// Failed to save settings
 			}
 		}
 		
@@ -202,35 +198,74 @@ namespace bootmenu
 		}
 	}
 
-	// Receive progress messages from ZAPD
+	// Get progress messages from ZAPD
 	void ZapdProgressCallbackImpl(const char* message) {
 		if (!message) return;
 		
-		std::string msg(message);
-		while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r' || msg.back() == ' ' || msg.back() == '\t')) {
-			msg.pop_back();
+		std::string fullMsg(message);
+		if (fullMsg.empty()) return;
+		
+		std::vector<std::string> lines;
+		std::string currentLine;
+		
+		for (size_t i = 0; i < fullMsg.length(); ++i) {
+			char c = fullMsg[i];
+			if (c == '\n' || c == '\r') {
+				if (!currentLine.empty()) {
+					while (!currentLine.empty() && (currentLine.back() == ' ' || currentLine.back() == '\t')) {
+						currentLine.pop_back();
+					}
+					if (!currentLine.empty()) {
+						lines.push_back(currentLine);
+					}
+					currentLine.clear();
+				}
+			} else {
+				currentLine += c;
+			}
 		}
 		
-		if (msg.empty() || msg == "\n" || msg == "\r\n") {
-			return;
+		if (!currentLine.empty()) {
+			while (!currentLine.empty() && (currentLine.back() == ' ' || currentLine.back() == '\t')) {
+				currentLine.pop_back();
+			}
+			if (!currentLine.empty()) {
+				lines.push_back(currentLine);
+			}
 		}
+		
+		if (lines.empty()) return;
 		
 		{
 			std::lock_guard<std::mutex> lock(g_extractionState.mutex);
 			
-			int current = 0, total = 0;
-			if (sscanf_s(msg.c_str(), "(%d / %d):", &current, &total) == 2 || 
-			    sscanf_s(msg.c_str(), "(%d/%d):", &current, &total) == 2) {
-				if (total > 0 && current >= 0 && current <= total) {
-					g_extractionState.currentFileIndex = current;
-					g_extractionState.totalFiles = total;
-					g_extractionState.progressPercent = (static_cast<float>(current) / static_cast<float>(total)) * 100.0f;
+			for (const auto& line : lines) {
+				if (line.empty()) continue;
+				
+				if (line.find("Generated OTR") != std::string::npos || 
+				    line.find("OTR File Data") != std::string::npos) {
+					if (g_extractionState.totalFiles > 0) {
+						g_extractionState.currentFileIndex = g_extractionState.totalFiles;
+						g_extractionState.progressPercent = 100.0f;
+					}
 				}
+				
+				int current = 0, total = 0;
+				if (sscanf_s(line.c_str(), "(%d / %d):", &current, &total) == 2 || 
+				    sscanf_s(line.c_str(), "(%d/%d):", &current, &total) == 2) {
+					if (total > 0 && current > 0 && current <= total) {
+						g_extractionState.currentFileIndex = current;
+						g_extractionState.totalFiles = total;
+						g_extractionState.progressPercent = (static_cast<float>(current) / static_cast<float>(total)) * 100.0f;
+					}
+				}
+				
+				g_extractionState.logLines.push_back(line);
 			}
 			
-			g_extractionState.logLines.push_back(msg);
-			if (g_extractionState.logLines.size() > 100) {
-				g_extractionState.logLines.erase(g_extractionState.logLines.begin());
+			if (g_extractionState.logLines.size() > 500) {
+				g_extractionState.logLines.erase(g_extractionState.logLines.begin(), 
+					g_extractionState.logLines.begin() + (g_extractionState.logLines.size() - 500));
 			}
 		}
 	}
@@ -256,7 +291,7 @@ namespace bootmenu
 		AddLog("Initializing extraction...");
 		
 		// Set up callback to receive ZAPD output
-		g_zapdProgressCallback = ZapdProgressCallbackImpl;
+		SetZapdProgressCallback(ZapdProgressCallbackImpl);
 
 		auto progressThreadFunc = []() {
 			while (true) {
@@ -284,15 +319,21 @@ namespace bootmenu
 		bool result = Extractor_CallZapd(installPath.c_str(), auxRoot.c_str(), romPath.c_str());
 		bool success = result;
 		
-		// Clear callback
-		g_zapdProgressCallback = nullptr;
-
-
-		// Set completion state immediately so progress thread can exit
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		
 		std::string completionMessage;
 		{
 			std::lock_guard<std::mutex> lock(g_extractionState.mutex);
+			
+			if (g_extractionState.totalFiles > 0) {
+				g_extractionState.currentFileIndex = g_extractionState.totalFiles;
+				g_extractionState.progressPercent = 100.0f;
+			} else if (g_extractionState.progressPercent < 100.0f) {
+				g_extractionState.progressPercent = 100.0f;
+			}
+			
 			g_extractionState.extractionSuccess = success;
+			
 			if (success)
 			{
 				const std::filesystem::path mmO2rPath = GetAuxRoot() / "mm.o2r";
@@ -326,6 +367,10 @@ namespace bootmenu
 				completionMessage = g_extractionState.errorMessage;
 			}
 		}
+		
+		// Clear callback after updating state
+		SetZapdProgressCallback(nullptr);
+		
 		// Add log message after releasing the mutex to avoid deadlock
 		AddLog(completionMessage);
 
@@ -444,7 +489,7 @@ namespace bootmenu
 					}
 				}
 			}
-		} catch (const winrt::hresult_error& e) {
+		} catch (const winrt::hresult_error&) {
 			// ApplicationData access failed - this can happen if called too early
 			// Default to showing setup screen to be safe
 			hasStorageConfig = false;
@@ -752,18 +797,16 @@ namespace bootmenu
 							ImGui::TextWrapped("Waiting for extraction output...");
 							ImGui::PopStyleColor();
 						} else {
-							for (const auto& line : logLinesCopy) {
+							for (size_t i = 0; i < logLinesCopy.size(); ++i) {
+								const auto& line = logLinesCopy[i];
+								if (line.empty()) continue;
+								
 								ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.88f, 0.88f, 0.90f, 1.0f));
-								ImGui::TextWrapped("%s", line.c_str());
+								ImGui::TextUnformatted(line.c_str());
 								ImGui::PopStyleColor();
 							}
-						}
-						
-						// Auto-scroll to bottom if extracting (do this after rendering all text)
-						if (currentState == BootState::Extracting) {
-							float scrollY = ImGui::GetScrollY();
-							float scrollMaxY = ImGui::GetScrollMaxY();
-							if (scrollMaxY > 0 && scrollY < scrollMaxY - 1.0f) {
+							
+							if (currentState == BootState::Extracting && !logLinesCopy.empty()) {
 								ImGui::SetScrollHereY(1.0f);
 							}
 						}

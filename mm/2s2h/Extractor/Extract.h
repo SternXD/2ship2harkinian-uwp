@@ -42,8 +42,6 @@ class Extractor {
     bool ValidateNotCompressed() const;
     const char* GetZapdVerStr() const;
 
-    void SetRomInfo(const std::string& path);
-
     void FilterRoms(std::vector<std::string>& roms, RomSearchMode searchMode);
     void GetRoms(std::vector<std::string>& roms);
     void ShowSizeErrorBox() const;
@@ -61,6 +59,8 @@ class Extractor {
 
     bool Run(std::string searchPath, RomSearchMode searchMode = RomSearchMode::Both);
     bool CallZapd(std::string installPath, std::string exportdir);
+    void SetRomInfo(const std::string& path);
+    void LoadRomData(); // Load ROM data from mCurrentRomPath
     const char* GetZapdStr();
     std::string Mkdtemp();
 };
