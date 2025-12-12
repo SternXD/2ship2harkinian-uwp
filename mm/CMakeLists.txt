@@ -519,6 +519,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
         "Vorbis::vorbisenc"
         "Vorbis::vorbisfile"
 		"OpusFile::opusfile"
+		"WindowsApp"
 	)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
     find_package(SDL2)

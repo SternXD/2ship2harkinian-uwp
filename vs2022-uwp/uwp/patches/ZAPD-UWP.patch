@@ -1,0 +1,55 @@
+From c3acd441deac14c9dcd8ac6e702aa07b75c6a231 Mon Sep 17 00:00:00 2001
+From: SternXD <stern@sidestore.io>
+Date: Fri, 12 Dec 2025 12:58:06 -0500
+Subject: [PATCH] UWP: Add UWP compatibility and progress reporting
+
+---
+ ZAPD/Main.cpp | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/ZAPD/Main.cpp b/ZAPD/Main.cpp
+index 4598da9..180da3a 100644
+--- a/ZAPD/Main.cpp
++++ b/ZAPD/Main.cpp
+@@ -4,6 +4,38 @@
+ #include <Utils/Directory.h>
+ #include "WarningHandler.h"
+ 
++#ifdef _UWP
++#include <Windows.h>
++#include <cstdio>
++#include <cstdarg>
++
++extern "C" {
++    typedef void (*ZapdProgressCallback)(const char* message);
++    ZapdProgressCallback g_zapdProgressCallback = nullptr;
++}
++
++// Wrap printf to capture output for UWP
++int zapd_printf(const char* format, ...) {
++    char buffer[4096];
++    va_list args;
++    va_start(args, format);
++    int result = vsnprintf(buffer, sizeof(buffer), format, args);
++    va_end(args);
++
++    // Call the callback if set
++    if (g_zapdProgressCallback) {
++        g_zapdProgressCallback(buffer);
++    }
++
++    // Also output to debug console
++    OutputDebugStringA(buffer);
++    return result;
++}
++
++// Redirect printf to our wrapper for UWP
++#define printf zapd_printf
++#endif
++
+ // Linker Hacks Begin
+ #include "ZAnimation.h"
+ ZNormalAnimation nAnim(nullptr);
+-- 
+2.51.1.windows.1
+

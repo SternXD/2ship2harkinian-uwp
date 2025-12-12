@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{F8C93236-8E37-4B82-A9E4-2C1A8E50B3B8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UwpAssets">
+      <UniqueIdentifier>{5FBE4E05-3320-45A2-BBF7-86D1A5F9B0E1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Package">
+      <UniqueIdentifier>{1B0F6A7C-5E43-4B3D-946E-89A9C85A9D2E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content">
+      <UniqueIdentifier>{2E04B6C6-7187-4E5C-A1EC-84E6C63F8CF9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\assets">
+      <UniqueIdentifier>{5d14a886-7cfa-45de-9a39-2d1b5f2fbb42}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\assets\custom">
+      <UniqueIdentifier>{c7d1a2f1-5c2c-4b68-9cdb-2a1c7c10b1e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\assets\custom\fonts">
+      <UniqueIdentifier>{8c3f59d5-e0a3-4e38-9ba6-7ae8d788d2b9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImGui">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImGui\Backends">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\bootmenu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dx11glue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui_draw.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui_tables.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui_widgets.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/backends/imgui_impl_sdl2.cpp">
+      <Filter>ImGui\Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/backends/imgui_impl_dx11.cpp">
+      <Filter>ImGui\Backends</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\bootmenu.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dx11glue.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="UwpAssets\LockScreenLogo.scale-200.png">
+      <Filter>UwpAssets</Filter>
+    </Image>
+    <Image Include="UwpAssets\Square44x44Logo.scale-200.png">
+      <Filter>UwpAssets</Filter>
+    </Image>
+    <Image Include="UwpAssets\Square150x150Logo.scale-200.png">
+      <Filter>UwpAssets</Filter>
+    </Image>
+    <Image Include="UwpAssets\Square44x44Logo.targetsize-24_altform-unplated.png">
+      <Filter>UwpAssets</Filter>
+    </Image>
+    <Image Include="UwpAssets\StoreLogo.png">
+      <Filter>UwpAssets</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest">
+      <Filter>Package</Filter>
+    </AppxManifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(RecompBin)*.dll">
+      <Filter>Content</Filter>
+    </Content>
+    <Content Include="$(RecompReleaseBuild)2ship.dll">
+      <Filter>Content</Filter>
+    </Content>
+    <Content Include="$(SolutionDir)../2ship.o2r">
+      <Filter>Content</Filter>
+    </Content>
+    <Content Include="$(SolutionDir)..\build_vanilla\_deps\uwplibs-src\x64\bin\dxil.dll">
+      <Filter>Content</Filter>
+    </Content>
+    <Content Include="$(SolutionDir)/../build_vanilla/gamecontrollerdb.txt">
+      <Filter>Content</Filter>
+    </Content>
+    <Content Include="$(SolutionDir)/../mm/assets/custom/fonts/Inconsolata-Regular.ttf">
+      <Filter>Content\assets\custom\fonts</Filter>
+    </Content>
+  </ItemGroup>
+</Project>

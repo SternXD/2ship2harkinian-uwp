@@ -42,11 +42,11 @@
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
-    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <ProjectName>2ship</ProjectName>
+    <ProjectName>2ship2harkinian</ProjectName>
     <RecompBase>$(SolutionDir)../build_vanilla/</RecompBase>
     <RecompDebugBuild>$(RecompBase)../x64/Debug/</RecompDebugBuild>
     <RecompReleaseBuild>$(RecompBase)../x64/Release/</RecompReleaseBuild>
@@ -136,7 +136,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros">
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <PackageCertificateKeyFile>recomp_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificateKeyFile>2ship2harkinian_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
@@ -225,14 +225,19 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
       <AdditionalDependencies>
-	      		    $(RecompDebugBuild)2ship.lib;
-
-	      		    libuwp.lib;
-	      		    SDL2.lib;
-	      	 	    vccorlibd.lib;msvcrtd.lib;
-	      		    WindowsApp.lib;OneCore.lib;
-			    d3d12.lib;dxgi.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(RecompLib); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
+               $(RecompDebugBuild)2ship.lib;
+                libuwp.lib;
+                SDL2.lib;
+                vccorlibd.lib;
+                msvcrtd.lib;
+                WindowsApp.lib;
+                OneCore.lib;
+                d3d12.lib;
+                dxgi.lib;
+                dxguid.lib;
+                mmdevapi.lib;
+                %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(RecompLib); $(RecompDebugBuild); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
       <IgnoreSpecificDefaultLibraries>vccorlib;msvcrt</IgnoreSpecificDefaultLibraries>
     </Link>
@@ -241,24 +246,41 @@
       <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
       <AdditionalIncludeDirectories>
 		$(RecompInc);
+		$(RecompInc)SDL2;
+		$(RecompBase)_deps/uwplibs-src/3rdparty/imgui;
+		$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/backends;
 		$(ProjectDir);
+		$(SolutionDir)../mm/2s2h;
+		$(SolutionDir)../mm/include;
+		$(SolutionDir)../libultraship/include;
+		$(SolutionDir)../libultraship/src;
 		$(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_UWP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <CompileAsWinRT>true</CompileAsWinRT>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>if not exist "$(SolutionDir)..\build_vanilla\gamecontrollerdb.txt" (
+  powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gabomdq/SDL_GameControllerDB/master/gamecontrollerdb.txt' -OutFile '$(SolutionDir)..\build_vanilla\gamecontrollerdb.txt'"
+)</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
       <AdditionalDependencies>
-	      		    $(RecompReleaseBuild)2ship.lib;
-	      		    libuwp.lib;
-			    SDL2.lib; 
-	      		    WindowsApp.lib;OneCore.lib;
-			    d3d12.lib;dxgi.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(RecompLib); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
+                $(RecompReleaseBuild)2ship.lib;
+                libuwp.lib;
+                SDL2.lib;
+                WindowsApp.lib;
+                OneCore.lib;
+                d3d12.lib;
+                dxgi.lib;
+                dxguid.lib;
+                mmdevapi.lib;
+                %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(RecompLib); $(RecompReleaseBuild); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
     <ClCompile>
@@ -266,14 +288,26 @@
       <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
       <AdditionalIncludeDirectories>
 	      	      $(RecompInc);
+		      $(RecompInc)SDL2;
+		      $(RecompBase)_deps/uwplibs-src/3rdparty/imgui;
+		      $(RecompBase)_deps/uwplibs-src/3rdparty/imgui/backends;
 		      $(ProjectDir);
+		      $(SolutionDir)../mm/2s2h;
+		      $(SolutionDir)../mm/include;
+		      $(SolutionDir)../libultraship/include;
+		      $(SolutionDir)../libultraship/src;
 		      $(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_UWP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <CompileAsWinRT>false</CompileAsWinRT>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>if not exist "$(SolutionDir)..\build_vanilla\gamecontrollerdb.txt" (
+  powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gabomdq/SDL_GameControllerDB/master/gamecontrollerdb.txt' -OutFile '$(SolutionDir)..\build_vanilla\gamecontrollerdb.txt'"
+)</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Image Include="UwpAssets\LockScreenLogo.scale-200.png" />
@@ -288,7 +322,15 @@
     </AppxManifest>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\bootmenu.cpp" />
+    <ClCompile Include="src\dx11glue.cpp" />
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui.cpp" />
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui_draw.cpp" />
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui_tables.cpp" />
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/imgui_widgets.cpp" />
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/backends/imgui_impl_sdl2.cpp" />
+    <ClCompile Include="$(RecompBase)_deps/uwplibs-src/3rdparty/imgui/backends/imgui_impl_dx11.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
@@ -303,7 +345,19 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="$(SolutionDir)/../mm/assets/extractor/**/*">
-      <Link>assets/extractor/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <Link>assets/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(SolutionDir)/../mm/assets/xml/**/*">
+      <Link>assets/xml/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(SolutionDir)/../mm/assets/custom/fonts/Inconsolata-Regular.ttf">
+      <Link>assets/custom/fonts/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(SolutionDir)/../build_vanilla/gamecontrollerdb.txt">
+      <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="$(RecompReleaseBuild)2ship.dll">
@@ -314,7 +368,7 @@
       <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64\dxil.dll">
+    <Content Include="$(SolutionDir)..\build_vanilla\_deps\uwplibs-src\x64\bin\dxil.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

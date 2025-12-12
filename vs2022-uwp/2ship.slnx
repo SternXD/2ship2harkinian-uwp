@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <Platform Name="ARM" />
+    <Platform Name="ARM64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="uwp/uwp.vcxproj" Id="4d53d6d1-e1e7-4824-bffb-c0b114bcd549">
+    <Deploy />
+  </Project>
+</Solution>
