@@ -316,8 +316,26 @@ namespace bootmenu
 		};
 		std::thread progressThread(progressThreadFunc);
 
-		bool result = Extractor_CallZapd(installPath.c_str(), auxRoot.c_str(), romPath.c_str());
-		bool success = result;
+		bool result = false;
+		bool success = false;
+		std::string errorDetails;
+		
+		try {
+			result = Extractor_CallZapd(installPath.c_str(), auxRoot.c_str(), romPath.c_str());
+			success = result;
+		} catch (const std::runtime_error& e) {
+			errorDetails = std::string("Runtime error: ") + e.what();
+			AddLog(errorDetails);
+			success = false;
+		} catch (const std::exception& e) {
+			errorDetails = std::string("Exception: ") + e.what();
+			AddLog(errorDetails);
+			success = false;
+		} catch (...) {
+			errorDetails = "Unknown exception occurred during extraction";
+			AddLog(errorDetails);
+			success = false;
+		}
 		
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		
@@ -363,7 +381,11 @@ namespace bootmenu
 			else
 			{
 				g_extractionState.state = BootState::ExtractionFailed;
-				g_extractionState.errorMessage = "ZAPD extraction failed. Please check the logs for details.";
+				if (!errorDetails.empty()) {
+					g_extractionState.errorMessage = "ZAPD extraction failed: " + errorDetails;
+				} else {
+					g_extractionState.errorMessage = "ZAPD extraction failed. Please check the logs for details.";
+				}
 				completionMessage = g_extractionState.errorMessage;
 			}
 		}
@@ -784,7 +806,7 @@ namespace bootmenu
 					if (currentState == BootState::Extracting) {
 						logFlags |= ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 					}
-					ImGui::BeginChild("Log", ImVec2(0, 160), true, logFlags);
+					ImGui::BeginChild("Log", ImVec2(0, 280), true, logFlags);
 					{
 						std::vector<std::string> logLinesCopy;
 						{
@@ -908,39 +930,60 @@ namespace bootmenu
 					ImGui::Text("2Ship2Harkinian");
 					ImGui::PopStyleColor();
 					ImGui::Spacing();
-					ImGui::Separator();
-					ImGui::Spacing();
 					ImGui::Spacing();
 					
 					ImGui::TextWrapped("A decompilation and port of The Legend of Zelda: Majora's Mask.");
 					ImGui::Spacing();
+					ImGui::Spacing();
 					
-					try {
-						auto package = winrt::Windows::ApplicationModel::Package::Current();
-						auto version = package.Id().Version();
-						char versionStr[64];
-						snprintf(versionStr, sizeof(versionStr), "Version: %d.%d.%d.%d (UWP)", 
-							version.Major, version.Minor, version.Build, version.Revision);
-						ImGui::Text("%s", versionStr);
-					} catch (...) {
-						// Version not found.
+					static std::string cachedVersionStr;
+					static bool versionCached = false;
+					
+					if (!versionCached) {
+						try {
+							auto package = winrt::Windows::ApplicationModel::Package::Current();
+							if (package) {
+								auto version = package.Id().Version();
+								char versionStr[64];
+								snprintf(versionStr, sizeof(versionStr), "Version: %d.%d.%d.%d", 
+									version.Major, version.Minor, version.Build, version.Revision);
+								cachedVersionStr = versionStr;
+								versionCached = true;
+							}
+						} catch (...) {
+							// Version not available use fallback
+							cachedVersionStr = "Version: Unknown";
+							versionCached = true;
+						}
+					}
+					
+					if (!cachedVersionStr.empty()) {
+						ImGui::Text("%s", cachedVersionStr.c_str());
 					}
 					ImGui::Spacing();
-					
-					ImGui::TextWrapped("This is a Universal Windows Platform (UWP) port of 2Ship2Harkinian.");
 					ImGui::Spacing();
 					
-					ImGui::Separator();
+					ImGui::TextWrapped("This is an unofficial Universal Windows Platform (UWP) port of 2Ship2Harkinian maintained by SternXD and originally ported by worleydl.");
+					ImGui::Spacing();
 					ImGui::Spacing();
 					
-					ImGui::TextWrapped("For more information, visit:");
+					ImGui::TextWrapped("Original project:");
+					ImGui::Text("https://github.com/HarbourMasters/2ship2harkinian");
 					ImGui::Text("https://2ship.equipment/");
 					ImGui::Spacing();
-					
-					ImGui::Separator();
 					ImGui::Spacing();
 					
-					ImGui::TextWrapped("This software is provided as-is for educational purposes.");
+					ImGui::TextWrapped("2Ship2Harkinian source code is released under CC0-1.0.");
+					ImGui::TextWrapped("This software includes no copyrighted game assets.");
+					ImGui::Spacing();
+					ImGui::Spacing();
+					
+					ImGui::TextWrapped("A legally obtained copy of The Legend of Zelda: Majora's Mask is required.");
+					ImGui::Spacing();
+					ImGui::Spacing();
+					
+					ImGui::TextWrapped("2Ship2Harkinian and its logos are associated with the original HarbourMasters project.");
+					ImGui::TextWrapped("No endorsement is implied.");
 				}
 
 				ImGui::EndChild();
