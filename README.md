@@ -1,13 +1,13 @@
 [comment]: <> (Todo: Make Light Mode Image)
 [comment]: <> (Todo: Make Dark Mode Image)
 
-# 2 Ship 2 Harkinian
+# 2 Ship 2 Harkinian UWP
 
 ## Discord
 
-Official Discord: https://discord.com/invite/shipofharkinian
+Discord: https://discord.gg/nCyRs4vJAM
 
-If you're having any trouble after reading through this `README`, feel free ask for help in the 2 Ship 2 Harkinian Support text channels. Please keep in mind that we do not condone piracy.
+If you're having any trouble after reading through this `README`, feel free ask for help in the Xbox Emulation Hub Support text channels. Please keep in mind that we do not condone piracy.
 
 # Quick Start
 
@@ -16,20 +16,17 @@ If you're having any trouble after reading through this `README`, feel free ask 
 ### 1. Verify your ROM dump
 You can verify you have dumped a supported copy of the game by using the compatibility checker at https://2ship.equipment/. If you'd prefer to manually validate your ROM dump, you can cross-reference its `sha1` hash with the hashes [here](docs/supportedHashes.json).
 
-### 2. Download 2 Ship 2 Harkinian from [Releases](https://github.com/HarbourMasters/2Ship2Harkinian/releases)
+### 2. Download 2 Ship 2 Harkinian from [Releases](https://github.com/SternXD/2ship2harkinian-uwp/releases)
 
 ### 3. Launch the Game!
-#### Windows
-* Extract the zip
-* Launch `2ship.exe`
+#### Universal Windows Platform (UWP) / Xbox
+* Install the `.msix` package.
+* Launch the game from the Start menu or Xbox dashboard.
+* On first launch, you'll be prompted to select a storage location (LocalState, D:\2ship\, or E:\2ship\).
+* Select your supported copy of the game when prompted.
+* Wait for asset extraction to complete, then play!
 
-#### Linux
-* Place your supported copy of the game in the same folder as the appimage.
-* Execute `2ship.appimage`. You may have to `chmod +x` the appimage via terminal.
-
-#### macOS
-* Run `2ship.app`.
-* When prompted, select your supported copy of the game.
+**Note:** The UWP port is an unofficial port maintained by SternXD and originally ported by worleydl. This port is designed for Xbox consoles in Developer Mode.
 
 ### 4. Play!
 
@@ -37,12 +34,12 @@ Congratulations, you are now sailing with 2 Ship 2 Harkinian! Have fun!
 
 # Configuration
 
-### Default keyboard configuration
+### Default keyboard configuration (TBD)
 | N64 | A | B | Z | Start | Analog stick | C buttons | D-Pad |
 | - | - | - | - | - | - | - | - |
 | Keyboard | X | C | Z | Space | WASD | Arrow keys | TFGH |
 
-### Other shortcuts
+### Other shortcuts (TBD)
 | Keys | Action |
 | - | - |
 | F1 | Toggle menubar |
@@ -51,13 +48,12 @@ Congratulations, you are now sailing with 2 Ship 2 Harkinian! Have fun!
 | Ctrl+R | Reset |
 
 ### Graphics Backends
-Currently, there are three rendering APIs supported: DirectX 11 (Windows), OpenGL (all platforms), and Metal (macOS). You can change which API to use in the `Settings` menu of the menubar, which requires a restart.
+Currently, there are two rendering APIs supported: DirectX 11, and OpenGL. You can change which API to use in the `Settings` menu of the menubar, which requires a restart.
 
 If you're having an issue with crashing, you can also change the API manually in the `2ship2harkinian.json` file by finding the `"Backend": {` section and updating the backend ID and name. Be sure to use one of the valid values:
 
-- `0` = DirectX 11 (default on Windows)
+- `0` = DirectX 11 (default on UWP)
 - `1` = OpenGL
-- `2` = Metal (default on macOS)
 
 # Custom Assets
 
@@ -71,18 +67,3 @@ If you're interested in creating and/or packing your own custom asset `.o2r`/`.o
 ### Building
 
 If you want to manually compile 2S2H, please consult the [building instructions](docs/BUILDING.md).
-
-
-### Playtesting
-If you want to playtest a continuous integration build, you can find them at the links below. Keep in mind that these are for playtesting only, and you will likely encounter bugs and possibly crashes. 
-
-* [Windows](https://nightly.link/HarbourMasters/2ship2harkinian/workflows/main/develop/2ship-windows.zip)
-* [Linux](https://nightly.link/HarbourMasters/2ship2harkinian/workflows/main/develop/2ship-linux.zip)
-* [Mac](https://nightly.link/HarbourMasters/2ship2harkinian/workflows/main/develop/2ship-mac.zip)
-
-<a href="https://github.com/Kenix3/libultraship/">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/poweredbylus.darkmode.png">
-    <img alt="Powered by libultraship" src="./docs/poweredbylus.lightmode.png">
-  </picture>
-</a>
