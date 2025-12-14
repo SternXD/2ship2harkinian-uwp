@@ -1,4 +1,8 @@
 #include "Menu.h"
+
+#ifdef _UWP
+#include "2s2h/WinRTKeyboard.h"
+#endif
 #include "UIWidgets.hpp"
 #include "BenPort.h"
 #include "BenInputEditorWindow.h"
@@ -500,6 +504,26 @@ void Menu::Draw() {
 
 static bool freshOpen = true;
 void Menu::DrawElement() {
+#ifdef _UWP
+    static bool keyboardInitialized = false;
+    if (!keyboardInitialized) {
+        InitializeKeyboardInput();
+        keyboardInitialized = true;
+    }
+    
+    // Process any buffered characters from UWP keyboard
+    ProcessCharacterBuffer();
+    
+    static bool wasInputActive = false;
+    bool isInputActive = ImGui::GetIO().WantTextInput;
+    if (isInputActive && !wasInputActive) {
+        ShowKeyboard();
+    } else if (!isInputActive && wasInputActive) {
+        HideKeyboard();
+    }
+    wasInputActive = isInputActive;
+#endif
+
     for (auto& [reason, info] : disabledMap) {
         info.active = info.evaluation(info);
     }
