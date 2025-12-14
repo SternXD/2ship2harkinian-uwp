@@ -98,7 +98,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 add_compile_definitions(_UWP=1)
 FetchContent_Declare(UwpLibs
     GIT_REPOSITORY https://github.com/SternXD/uwp-dep.git
-    GIT_TAG 268c324b73437be3f1f5ac13b0aa5c9e571a5d9b
+    GIT_TAG d6a6acc403a21a8a60bfbe6cd3a7cbafdf91df15
 )
 FetchContent_MakeAvailable(UwpLibs)
 

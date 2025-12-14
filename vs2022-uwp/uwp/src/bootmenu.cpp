@@ -3,41 +3,41 @@
 // imgui licensed under MIT Copyright (c) 2014-2025 Omar Cornut
 #include "bootmenu.h"
 
-#include <filesystem>
-#include <string>
-#include <vector>
-#include <thread>
-#include <mutex>
+// Standard libraries
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cctype>
+#include <filesystem>
 #include <fstream>
+#include <mutex>
+#include <optional>
 #include <process.h>
+#include <string>
+#include <thread>
+#include <vector>
 
+// Platform (Windows / WinRT)
+#include <Windows.h>
+#include <io.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <winbase.h>
+#include <winrt/base.h>
+#include <winrt/Windows.ApplicationModel.h>
+#include <winrt/Windows.Storage.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Collections.h>
+
+// Third-party libraries
 #include <SDL2/SDL.h>
-
 #include <imgui.h>
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_dx11.h"
 
+// Project headers
 #include "dx11glue.h"
 #include "libuwp.h"
-
-#include <Windows.ApplicationModel.h>
-#include <winrt/Windows.ApplicationModel.h>
-#include <Windows.Storage.h>
-#include <winrt/Windows.Storage.h>
-#include <Windows.Foundation.h>
-#include <winrt/Windows.Foundation.h>
-#include <Windows.Foundation.Collections.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/base.h>
-
-#include <io.h>
-#include <fcntl.h>
-#include <Windows.h>
-#include <winbase.h>
-#include <errno.h>
-
 #include "Extractor/Extract.h"
 
 extern "C" {
@@ -49,7 +49,6 @@ extern "C" {
     #endif
 }
 
-extern "C" __declspec(dllimport) bool uwp_pick_rom(char* outPath, size_t outLen);
 extern "C" __declspec(dllimport) void uwp_GetBundlePath(char* buffer);
 extern "C" __declspec(dllimport) const char* uwp_get_aux_root();
 extern "C" __declspec(dllimport) bool Extractor_CallZapd(const char* installPath, const char* exportdir, const char* romPath);
@@ -195,6 +194,175 @@ namespace bootmenu
 			char buffer[1024] = { 0 };
 			uwp_GetBundlePath(buffer);
 			return std::string(buffer);
+		}
+
+		std::optional<std::filesystem::path> TryGetLocalStatePath() {
+			try {
+				auto appData = winrt::Windows::Storage::ApplicationData::Current();
+				if (!appData) {
+					return std::nullopt;
+				}
+				auto folder = appData.LocalFolder();
+				if (!folder) {
+					return std::nullopt;
+				}
+				std::wstring localPath = folder.Path().c_str();
+				return std::filesystem::path(localPath);
+			} catch (...) {
+				return std::nullopt;
+			}
+		}
+
+		struct FileItem {
+			std::string name;
+			std::filesystem::path path;
+			bool isDirectory = false;
+		};
+
+		struct FileBrowserState {
+			std::filesystem::path currentPath;
+			std::vector<FileItem> items;
+			std::string selectedFile;
+			std::string errorText;
+			bool atRoot = true;
+		};
+
+		static FileBrowserState g_fileBrowser;
+
+		std::string ToLowerCopy(std::string value) {
+			std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			return value;
+		}
+
+		bool IsRomExtension(const std::filesystem::path& path) {
+			const std::string ext = ToLowerCopy(path.extension().string());
+			return ext == ".z64" || ext == ".n64" || ext == ".v64" || ext == ".rom";
+		}
+
+		std::vector<FileItem> EnumerateDrives() {
+			std::vector<FileItem> drives;
+
+			if (auto localState = TryGetLocalStatePath()) {
+				std::error_code ec;
+				if (std::filesystem::exists(*localState, ec) && !ec) {
+					FileItem item;
+					item.name = "LocalState";
+					item.path = *localState;
+					item.isDirectory = true;
+					drives.push_back(item);
+				}
+			}
+			DWORD mask = GetLogicalDrives();
+			for (char letter = 'A'; letter <= 'Z'; ++letter) {
+				if ((mask & (1 << (letter - 'A'))) == 0) {
+					continue;
+				}
+				std::string rootPath;
+				rootPath.push_back(letter);
+				rootPath += ":/";
+				std::error_code ec;
+				if (std::filesystem::exists(rootPath, ec) && !ec) {
+					FileItem item;
+					item.name = rootPath;
+					item.path = rootPath;
+					item.isDirectory = true;
+					drives.push_back(item);
+				}
+			}
+
+			if (drives.empty()) {
+				for (const std::string& fallback : { "D:/", "E:/" }) {
+					std::error_code ec;
+					if (std::filesystem::exists(fallback, ec) && !ec) {
+						FileItem item;
+						item.name = fallback;
+						item.path = fallback;
+						item.isDirectory = true;
+						drives.push_back(item);
+					}
+				}
+			}
+
+			std::sort(drives.begin(), drives.end(), [](const FileItem& a, const FileItem& b) {
+				return ToLowerCopy(a.name) < ToLowerCopy(b.name);
+			});
+			return drives;
+		}
+
+		std::vector<FileItem> EnumerateDirectory(const std::filesystem::path& dirPath) {
+			std::vector<FileItem> items;
+			std::error_code ec;
+			std::filesystem::directory_options opts = std::filesystem::directory_options::skip_permission_denied;
+			for (std::filesystem::directory_iterator it(dirPath, opts, ec); !ec && it != std::filesystem::directory_iterator(); it.increment(ec)) {
+				const auto& entry = *it;
+				std::error_code statusEc;
+				const bool isDir = entry.is_directory(statusEc) && !statusEc;
+				const bool isFile = entry.is_regular_file(statusEc) && !statusEc;
+				if (!isDir && !isFile) {
+					continue;
+				}
+
+				FileItem item;
+				item.name = entry.path().filename().string();
+				item.path = entry.path();
+				item.isDirectory = isDir;
+
+				if (item.isDirectory || (isFile && IsRomExtension(entry.path()))) {
+					items.push_back(item);
+				}
+			}
+
+			std::sort(items.begin(), items.end(), [](const FileItem& a, const FileItem& b) {
+				if (a.isDirectory != b.isDirectory) {
+					return a.isDirectory && !b.isDirectory;
+				}
+				return ToLowerCopy(a.name) < ToLowerCopy(b.name);
+			});
+
+			return items;
+		}
+
+		void RefreshFileBrowser(FileBrowserState& state) {
+			state.errorText.clear();
+			try {
+				state.items = state.atRoot ? EnumerateDrives() : EnumerateDirectory(state.currentPath);
+			} catch (const std::exception& e) {
+				state.items.clear();
+				state.errorText = e.what();
+			} catch (...) {
+				state.items.clear();
+				state.errorText = "Unable to read directory.";
+			}
+		}
+
+		void ResetFileBrowser(FileBrowserState& state) {
+			state.atRoot = true;
+			state.currentPath.clear();
+			state.selectedFile.clear();
+			state.errorText.clear();
+			RefreshFileBrowser(state);
+		}
+
+		void EnterDirectory(FileBrowserState& state, const std::filesystem::path& dirPath) {
+			state.atRoot = false;
+			state.currentPath = dirPath;
+			state.selectedFile.clear();
+			RefreshFileBrowser(state);
+		}
+
+		void GoUpOne(FileBrowserState& state) {
+			if (state.atRoot) {
+				return;
+			}
+			std::filesystem::path parent = state.currentPath.parent_path();
+			if (parent.empty() || parent == state.currentPath) {
+				state.atRoot = true;
+				state.currentPath.clear();
+			} else {
+				state.currentPath = parent;
+			}
+			state.selectedFile.clear();
+			RefreshFileBrowser(state);
 		}
 	}
 
@@ -543,6 +711,7 @@ namespace bootmenu
 
 		bool running = true;
 		bool shouldContinue = false;
+		BootState previousState = BootState::Setup;
 
 		while (running)
 		{
@@ -629,17 +798,21 @@ namespace bootmenu
 
 				ImGui::Spacing();
 
+				BootState currentState = previousState;
+				std::string errorMsg;
+				float progressPercent = 0.0f;
+				bool enteringSelecting = false;
+
 				if (selectedTab == 0)
 				{
-					BootState currentState;
-					std::string errorMsg;
-					float progressPercent = 0.0f;
 					{
 						std::lock_guard<std::mutex> lock(g_extractionState.mutex);
 						currentState = g_extractionState.state;
 						errorMsg = g_extractionState.errorMessage;
 						progressPercent = g_extractionState.progressPercent;
 					}
+
+					enteringSelecting = (currentState == BootState::SelectingROM && previousState != BootState::SelectingROM);
 
 					ImGui::SetCursorPosX((contentWidth - ImGui::CalcTextSize("2Ship2Harkinian").x) * 0.5f);
 					ImGui::Text("2Ship2Harkinian");
@@ -710,65 +883,145 @@ namespace bootmenu
 
 				case BootState::SelectingROM:
 				{
+					if (enteringSelecting) {
+						ResetFileBrowser(g_fileBrowser);
+					}
+
 					ImGui::SetCursorPosX((contentWidth - ImGui::CalcTextSize("Game assets not found. Please select a ROM file to extract assets.").x) * 0.5f);
 					ImGui::TextWrapped("Game assets not found. Please select a ROM file to extract assets.");
 					ImGui::Spacing();
 					ImGui::Spacing();
-					
+
+					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.80f, 0.80f, 0.85f, 1.0f));
+					ImGui::TextWrapped("Choose a Majora's Mask ROM (.z64/.n64/.v64). Directories are listed first.");
+					ImGui::PopStyleColor();
+					ImGui::Spacing();
+
 					const float buttonWidth = 220.0f;
 					const float buttonHeight = 45.0f;
 					ImGui::SetCursorPosX((contentWidth - buttonWidth) * 0.5f);
-					if (ImGui::Button("Select ROM File", ImVec2(buttonWidth, buttonHeight)))
-					{
-						char romBuffer[1024] = { 0 };
-						if (uwp_pick_rom(romBuffer, sizeof(romBuffer)))
-						{
-							std::string romPath(romBuffer);
-							if (std::filesystem::exists(romPath))
-							{
-								{
-									std::lock_guard<std::mutex> lock(g_extractionState.mutex);
-									g_extractionState.selectedRomPath = romPath;
-								}
+					if (ImGui::Button("Select ROM File", ImVec2(buttonWidth, buttonHeight))) {
+						ImGui::OpenPopup("ROM Picker");
+					}
 
+					// ROM picker modal
+					bool popupOpen = true;
+					if (ImGui::IsPopupOpen("ROM Picker")) {
+						const ImGuiViewport* vp = ImGui::GetMainViewport();
+						ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+						ImGui::SetNextWindowSize(ImVec2(820.0f, 640.0f), ImGuiCond_Always);
+					}
+					if (ImGui::BeginPopupModal("ROM Picker", &popupOpen, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize)) {
+						ImGui::TextWrapped("Select your Majora's Mask ROM. Drives and folders are shown on the left; only ROM extensions are selectable as files.");
+						ImGui::Spacing();
+
+						const std::string locationLabel = g_fileBrowser.atRoot ? std::string("Location: Drives") : std::string("Location: ") + g_fileBrowser.currentPath.string();
+						ImGui::TextWrapped("%s", locationLabel.c_str());
+						ImGui::Spacing();
+
+						const float navWidth = 420.0f;
+						ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - navWidth) * 0.5f);
+						const bool canGoUp = !g_fileBrowser.atRoot;
+						if (!canGoUp) {
+							ImGui::BeginDisabled();
+						}
+						if (ImGui::Button("Up")) {
+							GoUpOne(g_fileBrowser);
+						}
+						if (!canGoUp) {
+							ImGui::EndDisabled();
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Back to Drives")) {
+							ResetFileBrowser(g_fileBrowser);
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Refresh")) {
+							RefreshFileBrowser(g_fileBrowser);
+						}
+
+						ImGui::Spacing();
+						ImGui::BeginChild("RomBrowserModal", ImVec2(-FLT_MIN, 340.0f), true, ImGuiWindowFlags_None);
+						bool parentClicked = false;
+						if (!g_fileBrowser.atRoot) {
+							parentClicked = ImGui::Selectable("<Parent Directory>", false);
+						}
+
+						auto itemsCopy = g_fileBrowser.items;
+						std::optional<std::filesystem::path> directoryToEnter;
+						for (const auto& item : itemsCopy) {
+							std::string label = item.isDirectory ? std::string("[DIR] ") + item.name : item.name;
+							const bool isSelected = (!item.isDirectory && g_fileBrowser.selectedFile == item.path.string());
+							if (ImGui::Selectable(label.c_str(), isSelected)) {
+								if (item.isDirectory) {
+									directoryToEnter = item.path;
+								} else {
+									g_fileBrowser.selectedFile = item.path.string();
+									g_fileBrowser.errorText.clear();
+								}
+							}
+						}
+
+						if (g_fileBrowser.items.empty()) {
+							ImGui::TextDisabled("No items to display here.");
+						}
+						ImGui::EndChild();
+
+						if (parentClicked) {
+							GoUpOne(g_fileBrowser);
+						}
+						if (directoryToEnter.has_value()) {
+							EnterDirectory(g_fileBrowser, *directoryToEnter);
+						}
+
+						ImGui::Spacing();
+						if (!g_fileBrowser.errorText.empty()) {
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.45f, 1.0f));
+							ImGui::TextWrapped("%s", g_fileBrowser.errorText.c_str());
+							ImGui::PopStyleColor();
+							ImGui::Spacing();
+						}
+
+						const std::string selectedLabel = g_fileBrowser.selectedFile.empty() ? std::string("Selected: None") : std::string("Selected: ") + g_fileBrowser.selectedFile;
+						ImGui::TextWrapped("%s", selectedLabel.c_str());
+						ImGui::Spacing();
+
+						ImGui::BeginGroup();
+						if (ImGui::Button("Use Selected ROM", ImVec2(200.0f, 40.0f))) {
+							if (g_fileBrowser.selectedFile.empty()) {
+								g_fileBrowser.errorText = "Select a ROM to continue.";
+							} else if (!std::filesystem::exists(g_fileBrowser.selectedFile)) {
+								g_fileBrowser.errorText = "Selected ROM file does not exist.";
+							} else {
 								const std::string installPath = GetAppBundlePath();
 								const std::string assetsPath = installPath + "/assets";
-								if (!std::filesystem::exists(assetsPath))
-								{
-									{
-										std::lock_guard<std::mutex> lock(g_extractionState.mutex);
-										g_extractionState.state = BootState::ExtractionFailed;
-										g_extractionState.errorMessage = "Missing assets folder needed to generate O2R file. Please reinstall or add the assets folder.";
-									}
-								}
-								else
-								{
-									// Start extraction in background thread
-									if (!extractionThreadStarted)
-									{
-										auto auxRoot = GetAuxRoot();
-										extractionThread = std::thread(ExtractionThreadWorker, romPath, installPath, auxRoot.string());
-										extractionThreadStarted = true;
-									}
-								}
-							}
-							else
-							{
-								{
+								if (!std::filesystem::exists(assetsPath)) {
 									std::lock_guard<std::mutex> lock(g_extractionState.mutex);
 									g_extractionState.state = BootState::ExtractionFailed;
-									g_extractionState.errorMessage = "Selected ROM file does not exist: " + romPath;
+									g_extractionState.errorMessage = "Missing assets folder needed to generate O2R file. Please reinstall or add the assets folder.";
+								} else if (!extractionThreadStarted) {
+									{
+										std::lock_guard<std::mutex> lock(g_extractionState.mutex);
+										g_extractionState.selectedRomPath = g_fileBrowser.selectedFile;
+									}
+									auto auxRoot = GetAuxRoot();
+									extractionThread = std::thread(ExtractionThreadWorker, g_fileBrowser.selectedFile, installPath, auxRoot.string());
+									extractionThreadStarted = true;
+									ImGui::CloseCurrentPopup();
 								}
 							}
 						}
-						else
-						{
-							{
-								std::lock_guard<std::mutex> lock(g_extractionState.mutex);
-								g_extractionState.state = BootState::ExtractionFailed;
-								g_extractionState.errorMessage = "No ROM was selected.";
-							}
+						ImGui::SameLine();
+						if (ImGui::Button("Cancel", ImVec2(140.0f, 40.0f))) {
+							ImGui::CloseCurrentPopup();
 						}
+						ImGui::EndGroup();
+
+						ImGui::EndPopup();
+					}
+
+					if (!popupOpen) {
+						ImGui::CloseCurrentPopup();
 					}
 					break;
 				}
@@ -944,17 +1197,17 @@ namespace bootmenu
 							auto package = winrt::Windows::ApplicationModel::Package::Current();
 							if (package) {
 								auto version = package.Id().Version();
-								char versionStr[64];
-								snprintf(versionStr, sizeof(versionStr), "Version: %d.%d.%d.%d", 
+								char versionStr[128];
+								snprintf(versionStr, sizeof(versionStr), "Version: %u.%u.%u.%u (Based on Mion Bravo 3.0.1)", 
 									version.Major, version.Minor, version.Build, version.Revision);
 								cachedVersionStr = versionStr;
-								versionCached = true;
+							} else {
+								cachedVersionStr = "Version: Unknown (Based on Mion Bravo 3.0.1)";
 							}
 						} catch (...) {
-							// Version not available use fallback
-							cachedVersionStr = "Version: Unknown";
-							versionCached = true;
+							cachedVersionStr = "Version: Unknown (Based on Mion Bravo 3.0.1)";
 						}
+						versionCached = true;
 					}
 					
 					if (!cachedVersionStr.empty()) {
@@ -985,6 +1238,8 @@ namespace bootmenu
 					ImGui::TextWrapped("2Ship2Harkinian and its logos are associated with the original HarbourMasters project.");
 					ImGui::TextWrapped("No endorsement is implied.");
 				}
+
+				previousState = currentState;
 
 				ImGui::EndChild();
 				ImGui::End();

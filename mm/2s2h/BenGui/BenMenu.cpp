@@ -493,7 +493,13 @@ void BenMenu::AddSettings() {
             if (mBenMenu->disabledMap.at(DISABLE_FOR_MATCH_REFRESH_RATE_ON).active)
                 info.activeDisables.push_back(DISABLE_FOR_MATCH_REFRESH_RATE_ON);
         })
-        .Options(IntSliderOptions().Min(20).Max(360).DefaultValue(20).Tooltip(
+        .Options(IntSliderOptions().Min(20)
+#ifdef _UWP
+            .Max(60)
+#else
+            .Max(360)
+#endif
+            .DefaultValue(20).Tooltip(
             "Uses Matrix Interpolation to create extra frames, resulting in smoother graphics. "
             "This is purely visual and does not impact game logic, execution of glitches etc.\n\n"
             "A higher target FPS than your monitor's refresh rate will waste resources, and might give a worse "
@@ -508,12 +514,15 @@ void BenMenu::AddSettings() {
         .Options(CheckboxOptions()
                      .Tooltip("Removes tearing, but clamps your max FPS to your displays refresh rate.")
                      .DefaultValue(true));
+
+#if !defined(_UWP)
     AddWidget(path, "Windowed Fullscreen", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_SDL_WINDOWED_FULLSCREEN)
         .PreFunc([](WidgetInfo& info) {
             info.isHidden = mBenMenu->disabledMap.at(DISABLE_FOR_NO_WINDOWED_FULLSCREEN).active;
         })
         .Options(CheckboxOptions().Tooltip("Enables Windowed Fullscreen Mode."));
+#endif
     AddWidget(path, "Allow multi-windows", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENABLE_MULTI_VIEWPORTS)
         .PreFunc(

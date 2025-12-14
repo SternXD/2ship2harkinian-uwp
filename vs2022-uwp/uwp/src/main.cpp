@@ -4,61 +4,76 @@
 #include <filesystem>
 #include <string>
 #include <map>
+#include <winrt/Windows.Storage.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/base.h>
 
 extern "C" __declspec(dllimport) void* uwp_GetWindowReference();
 extern "C" __declspec(dllimport) const char* uwp_get_aux_root();
 
 namespace {
-	// Cache drive access state to avoid repeated checks
-	std::map<std::string, bool> g_driveAccessCache;
+	enum class StorageLocation
+	{
+		LocalState,
+		DDrive,
+		EDrive
+	};
 	
-	// Check if a drive is accessible using UWP APIs
-	bool CheckDriveAccess(const std::string& driveName) {
-		// Check cache first
-		auto it = g_driveAccessCache.find(driveName);
-		if (it != g_driveAccessCache.end()) {
-			return it->second;
-		}
-		
-		bool accessible = false;
+	StorageLocation GetStorageLocation() {
 		try {
-			std::wstring drivePath = std::wstring(driveName.begin(), driveName.end()) + L"\\*.*";
-			
-			WIN32_FIND_DATA findData;
-			HANDLE searchHandle = FindFirstFileExFromAppW(
-				drivePath.c_str(),
-				FindExInfoBasic,
-				&findData,
-				FindExSearchNameMatch,
-				nullptr,
-				0
-			);
-			
-			if (searchHandle != INVALID_HANDLE_VALUE && searchHandle != nullptr) {
-				FindClose(searchHandle);
-				accessible = true;
+			auto appData = winrt::Windows::Storage::ApplicationData::Current();
+			if (!appData) {
+				return StorageLocation::DDrive;
+			}
+			auto localSettings = appData.LocalSettings();
+			if (!localSettings) {
+				return StorageLocation::DDrive;
+			}
+			auto container = localSettings.Containers().TryLookup(L"Settings");
+			if (container) {
+				auto value = container.Values().TryLookup(L"StorageLocation");
+				if (value) {
+					int location = value.as<int>();
+					return static_cast<StorageLocation>(location);
+				}
 			}
 		} catch (...) {
-			// Drive not accessible
-			accessible = false;
+			// Settings not available, use default
 		}
-		
-		// Cache the result
-		g_driveAccessCache[driveName] = accessible;
-		return accessible;
+		return StorageLocation::DDrive; // Default to D: drive
 	}
 	
 	std::filesystem::path GetAuxRoot() {
-		// Try to find a suitable drive (prefer D:\, then E:\)
-		const char* drives[] = { "D:", "E:" };
-		for (const char* drive : drives) {
-			if (CheckDriveAccess(drive)) {
-				return std::filesystem::path(std::string(drive) + "/2ship/");
-			}
-		}
+		StorageLocation location = GetStorageLocation();
 		
-		// Final fallback to D:\2ship\ (most common for internal drives)
-		return std::filesystem::path("D:/2ship/");
+		switch (location) {
+			case StorageLocation::LocalState: {
+				// Use UWP LocalState folder
+				try {
+					auto appData = winrt::Windows::Storage::ApplicationData::Current();
+					if (!appData) {
+						return std::filesystem::path("D:/2ship/");
+					}
+					auto localFolder = appData.LocalFolder();
+					if (!localFolder) {
+						return std::filesystem::path("D:/2ship/");
+					}
+					std::wstring localPath = localFolder.Path().c_str();
+					std::string auxPath = std::filesystem::path(localPath).string() + "\\2ship";
+					return std::filesystem::path(auxPath);
+				} catch (...) {
+					// Fallback to D: if LocalState fails
+					return std::filesystem::path("D:/2ship/");
+				}
+			}
+			case StorageLocation::DDrive:
+				return std::filesystem::path("D:/2ship/");
+			case StorageLocation::EDrive:
+				return std::filesystem::path("E:/2ship/");
+			default:
+				return std::filesystem::path("D:/2ship/");
+		}
 	}
 }
 
@@ -98,12 +113,15 @@ int bootstrap(int argc, char** argv)
 				return 1;
 			}
 			
+			auxRoot = GetAuxRoot();
+			const std::filesystem::path mmO2rPathAfterBoot = auxRoot / "mm.o2r";
+			
 			// Verify mm.o2r was created and is valid, if not, exit
-			if (!std::filesystem::exists(mmO2rPath)) {
+			if (!std::filesystem::exists(mmO2rPathAfterBoot)) {
 				return 1;
 			}
 			try {
-				const auto o2rSize = std::filesystem::file_size(mmO2rPath);
+				const auto o2rSize = std::filesystem::file_size(mmO2rPathAfterBoot);
 				if (o2rSize < 1024 * 1024) {
 					return 1;
 				}

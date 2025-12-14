@@ -20,7 +20,7 @@ You can verify you have dumped a supported copy of the game by using the compati
 
 ### 3. Launch the Game!
 #### Universal Windows Platform (UWP) / Xbox
-* Install the `.msix` package.
+* Install the `.msixbundle` package.
 * Launch the game from the Start menu or Xbox dashboard.
 * On first launch, you'll be prompted to select a storage location (LocalState, D:\2ship\, or E:\2ship\).
 * Select your supported copy of the game when prompted.
@@ -34,10 +34,8 @@ Congratulations, you are now sailing with 2 Ship 2 Harkinian! Have fun!
 
 # Configuration
 
-### Default keyboard configuration (TBD)
+### Default controller configuration (TBD)
 | N64 | A | B | Z | Start | Analog stick | C buttons | D-Pad |
-| - | - | - | - | - | - | - | - |
-| Keyboard | X | C | Z | Space | WASD | Arrow keys | TFGH |
 
 ### Other shortcuts (TBD)
 | Keys | Action |
@@ -52,8 +50,8 @@ Currently, there are two rendering APIs supported: DirectX 11, and OpenGL. You c
 
 If you're having an issue with crashing, you can also change the API manually in the `2ship2harkinian.json` file by finding the `"Backend": {` section and updating the backend ID and name. Be sure to use one of the valid values:
 
-- `0` = DirectX 11 (default on UWP)
-- `1` = OpenGL
+- `0` = DirectX 11
+- `1` = OpenGL (default on UWP)
 
 # Custom Assets
 
